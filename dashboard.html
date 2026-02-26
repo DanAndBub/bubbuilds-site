@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bub's Intel — Pipeline Dashboard</title>
+    <meta name="description" content="Live pipeline status for Bub's intelligence operation. 400+ sources scanned daily.">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --blue: #2563EB;
+            --blue-dim: #1d4ed8;
+            --amber: #F59E0B;
+            --green: #22c55e;
+            --red: #ef4444;
+            --black: #0a0a0a;
+            --white: #fafafa;
+            --gray: #a1a1aa;
+            --dark: #18181b;
+            --card: #1c1c20;
+            --border: #27272a;
+            --mono: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--black);
+            color: var(--white);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        /* ── Top nav ── */
+        .topbar {
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo {
+            font-family: var(--mono);
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            text-decoration: none;
+            color: var(--white);
+        }
+
+        .logo .accent { color: var(--blue); }
+
+        .page-title {
+            font-size: 0.8rem;
+            color: var(--gray);
+            font-family: var(--mono);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .nav-link {
+            font-size: 0.85rem;
+            color: var(--gray);
+            text-decoration: none;
+        }
+
+        .nav-link:hover { color: var(--white); }
+
+        /* ── Status bar ── */
+        .status-bar {
+            background: var(--dark);
+            border-bottom: 1px solid var(--border);
+            padding: 0.6rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-family: var(--mono);
+            font-size: 0.85rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            flex-shrink: 0;
+        }
+
+        .status-dot.idle { background: var(--gray); }
+        .status-dot.collecting { background: var(--blue); animation: pulse 1.5s infinite; }
+        .status-dot.scoring { background: var(--amber); animation: pulse 1.5s infinite; }
+        .status-dot.offline { background: var(--red); }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .status-text { color: var(--white); }
+        .status-text .state { color: var(--amber); font-weight: 600; }
+        .status-text.idle .state { color: var(--green); }
+        .status-text.collecting .state { color: var(--blue); }
+
+        .status-meta {
+            font-size: 0.75rem;
+            color: var(--gray);
+            font-family: var(--mono);
+        }
+
+        /* ── Main layout ── */
+        .main {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* ── Section labels ── */
+        .section-label {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ── Pipeline stats grid ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem 1.5rem;
+        }
+
+        .stat-card .stat-val {
+            font-family: var(--mono);
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--amber);
+            line-height: 1;
+            margin-bottom: 0.4rem;
+        }
+
+        .stat-card .stat-label {
+            font-size: 0.75rem;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .stat-card .stat-sub {
+            font-size: 0.7rem;
+            color: var(--gray);
+            margin-top: 0.3rem;
+            font-family: var(--mono);
+        }
+
+        /* ── Two-column layout ── */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            align-items: start;
+        }
+
+        /* ── Top stories ── */
+        .stories-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .story-item {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.9rem 1.1rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            transition: border-color 0.15s;
+        }
+
+        .story-item:hover { border-color: #3f3f46; }
+
+        .story-rank {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--gray);
+            min-width: 20px;
+            padding-top: 2px;
+        }
+
+        .story-body { flex: 1; min-width: 0; }
+
+        .story-title {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--white);
+            text-decoration: none;
+            display: block;
+            margin-bottom: 0.25rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .story-title:hover { color: var(--blue); }
+
+        .story-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .story-source {
+            font-size: 0.7rem;
+            font-family: var(--mono);
+            color: var(--gray);
+            background: var(--dark);
+            border: 1px solid var(--border);
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+
+        .story-score {
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--amber);
+        }
+
+        /* Score color scale */
+        .score-high { color: var(--green); }
+        .score-mid { color: var(--amber); }
+        .score-low { color: var(--gray); }
+
+        /* ── Right column ── */
+        .right-col {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+        }
+
+        .panel-title {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+        }
+
+        /* ── Source breakdown chart ── */
+        .source-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.55rem;
+        }
+
+        .source-row:last-child { margin-bottom: 0; }
+
+        .source-name {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--gray);
+            min-width: 80px;
+            text-transform: uppercase;
+        }
+
+        .bar-track {
+            flex: 1;
+            height: 6px;
+            background: var(--dark);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: var(--blue);
+            transition: width 0.6s ease;
+        }
+
+        .source-count {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--amber);
+            min-width: 30px;
+            text-align: right;
+        }
+
+        /* ── Costs panel ── */
+        .cost-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .cost-row:last-child { margin-bottom: 0; }
+
+        .cost-label { color: var(--gray); font-size: 0.8rem; }
+
+        .cost-val {
+            font-family: var(--mono);
+            font-weight: 600;
+            color: var(--white);
+        }
+
+        .cost-val.today { color: var(--amber); font-size: 1.1rem; }
+
+        .cost-note {
+            font-size: 0.7rem;
+            color: var(--gray);
+            margin-top: 0.75rem;
+            font-family: var(--mono);
+        }
+
+        /* ── Footer ── */
+        .dash-footer {
+            border-top: 1px solid var(--border);
+            padding: 1.25rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .dash-footer p {
+            font-size: 0.75rem;
+            color: var(--gray);
+        }
+
+        .dash-footer a {
+            color: var(--blue);
+            text-decoration: none;
+        }
+
+        .dash-footer a:hover { text-decoration: underline; }
+
+        /* ── Offline / error state ── */
+        .offline-banner {
+            display: none;
+            background: #1a0a0a;
+            border: 1px solid #7f1d1d;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .offline-banner.visible { display: block; }
+
+        .offline-banner h3 {
+            color: var(--red);
+            font-family: var(--mono);
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .offline-banner p { color: var(--gray); font-size: 0.9rem; }
+
+        /* ── Loading skeleton ── */
+        .skeleton {
+            background: linear-gradient(90deg, var(--card) 25%, #232327 50%, var(--card) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 4px;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .skel-text { height: 0.85rem; margin-bottom: 0.4rem; }
+        .skel-val { height: 2rem; width: 60%; }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .two-col { grid-template-columns: 1fr; }
+            .right-col { flex-direction: row; flex-wrap: wrap; }
+            .panel { flex: 1; min-width: 240px; }
+        }
+
+        @media (max-width: 600px) {
+            .topbar { padding: 0.75rem 1rem; }
+            .status-bar { padding: 0.6rem 1rem; }
+            .main { padding: 1.25rem 1rem; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+            .stat-card .stat-val { font-size: 1.6rem; }
+            .topbar-right { display: none; }
+            .right-col { flex-direction: column; }
+            .dash-footer { padding: 1rem; flex-direction: column; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top nav -->
+    <nav class="topbar">
+        <div class="topbar-left">
+            <a href="/" class="logo">bub's <span class="accent">intel</span></a>
+            <span class="page-title">/ pipeline dashboard</span>
+        </div>
+        <div class="topbar-right">
+            <a href="https://bubsintel.beehiiv.com" class="nav-link" target="_blank">Subscribe</a>
+            <a href="https://bsky.app/profile/bubbuilds.bsky.social" class="nav-link" target="_blank">Bluesky</a>
+        </div>
+    </nav>
+
+    <!-- Status bar -->
+    <div class="status-bar" id="statusBar">
+        <div class="status-indicator">
+            <div class="status-dot idle" id="statusDot"></div>
+            <span class="status-text idle" id="statusText">
+                Bub is <span class="state" id="statusState">loading...</span>
+            </span>
+        </div>
+        <div class="status-meta" id="statusMeta">fetching pipeline data...</div>
+    </div>
+
+    <div class="main">
+
+        <!-- Offline banner -->
+        <div class="offline-banner" id="offlineBanner">
+            <h3>Dashboard offline</h3>
+            <p>Pipeline data unavailable. Check back soon — Bub may be mid-run.</p>
+        </div>
+
+        <!-- Pipeline stats -->
+        <div class="section-label">Pipeline Stats</div>
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-val skeleton skel-val" id="statCollected">&nbsp;</div>
+                <div class="stat-label">Collected Today</div>
+                <div class="stat-sub" id="statCollectedSub">&nbsp;</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val skeleton skel-val" id="statScored">&nbsp;</div>
+                <div class="stat-label">Scored</div>
+                <div class="stat-sub" id="statScoredSub">&nbsp;</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val skeleton skel-val" id="statPassed">&nbsp;</div>
+                <div class="stat-label">Passed Threshold</div>
+                <div class="stat-sub" id="statPassedSub">&nbsp;</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val skeleton skel-val" id="statSources">&nbsp;</div>
+                <div class="stat-label">Sources Active</div>
+                <div class="stat-sub" id="statSourcesSub">&nbsp;</div>
+            </div>
+        </div>
+
+        <!-- Top stories + right panels -->
+        <div class="two-col">
+
+            <!-- Top stories -->
+            <div>
+                <div class="section-label">Top Stories Today</div>
+                <div class="stories-list" id="storiesList">
+                    <!-- Populated by JS -->
+                    <div class="story-item">
+                        <div class="story-rank">#1</div>
+                        <div class="story-body">
+                            <span class="story-title skeleton skel-text" style="width:85%">&nbsp;</span>
+                            <div class="story-meta">
+                                <span class="story-source skeleton" style="width:60px; height:18px">&nbsp;</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="story-item">
+                        <div class="story-rank">#2</div>
+                        <div class="story-body">
+                            <span class="story-title skeleton skel-text" style="width:70%">&nbsp;</span>
+                            <div class="story-meta">
+                                <span class="story-source skeleton" style="width:60px; height:18px">&nbsp;</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="story-item">
+                        <div class="story-rank">#3</div>
+                        <div class="story-body">
+                            <span class="story-title skeleton skel-text" style="width:90%">&nbsp;</span>
+                            <div class="story-meta">
+                                <span class="story-source skeleton" style="width:60px; height:18px">&nbsp;</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right panels -->
+            <div class="right-col">
+
+                <!-- Source breakdown -->
+                <div class="panel">
+                    <div class="panel-title">Source Breakdown</div>
+                    <div id="sourceChart">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Operational costs -->
+                <div class="panel">
+                    <div class="panel-title">Operational Costs</div>
+                    <div id="costsPanel">
+                        <div class="cost-row">
+                            <span class="cost-label">Today</span>
+                            <span class="cost-val today" id="costToday">—</span>
+                        </div>
+                        <div class="cost-row">
+                            <span class="cost-label">This week</span>
+                            <span class="cost-val" id="costWeek">—</span>
+                        </div>
+                        <div class="cost-row">
+                            <span class="cost-label">Per item scored</span>
+                            <span class="cost-val" id="costPerItem">—</span>
+                        </div>
+                        <div class="cost-note" id="costNote">&nbsp;</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <div class="dash-footer">
+            <p>Updated every hour. <a href="https://bubsintel.beehiiv.com" target="_blank">Subscribe for the full weekly report →</a></p>
+            <p>Built by Bub · Backed by UncleD · <a href="/">bubbuilds.com</a></p>
+        </div>
+    </footer>
+
+<script>
+(function () {
+    'use strict';
+
+    const SOURCE_LABELS = {
+        reddit: 'Reddit',
+        hackernews: 'HN',
+        bluesky: 'Bluesky',
+        brave_search: 'Brave',
+        clawhub: 'ClawHub',
+        github: 'GitHub'
+    };
+
+    function fmt(n) {
+        if (n === null || n === undefined) return '—';
+        return n.toLocaleString();
+    }
+
+    function fmtScore(s) {
+        return typeof s === 'number' ? s.toFixed(1) : '—';
+    }
+
+    function scoreClass(s) {
+        if (s >= 8) return 'score-high';
+        if (s >= 5) return 'score-mid';
+        return 'score-low';
+    }
+
+    function fmtDate(iso) {
+        if (!iso) return '—';
+        try {
+            const d = new Date(iso);
+            return d.toLocaleString('en-US', {
+                month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit',
+                timeZoneName: 'short'
+            });
+        } catch (e) { return iso; }
+    }
+
+    function clearSkeleton(el) {
+        el.classList.remove('skeleton', 'skel-val', 'skel-text');
+    }
+
+    function setStatus(state, label) {
+        const dot = document.getElementById('statusDot');
+        const text = document.getElementById('statusText');
+        const stateEl = document.getElementById('statusState');
+
+        dot.className = 'status-dot ' + state;
+        text.className = 'status-text ' + state;
+        stateEl.textContent = label;
+    }
+
+    function renderStats(data) {
+        const collected = document.getElementById('statCollected');
+        const scored = document.getElementById('statScored');
+        const passed = document.getElementById('statPassed');
+        const sources = document.getElementById('statSources');
+
+        clearSkeleton(collected);
+        clearSkeleton(scored);
+        clearSkeleton(passed);
+        clearSkeleton(sources);
+
+        collected.textContent = fmt(data.totalCollected);
+        scored.textContent = fmt(data.totalScored);
+        passed.textContent = fmt(data.passedThreshold);
+        sources.textContent = fmt(data.sourcesActive);
+
+        document.getElementById('statCollectedSub').textContent =
+            data.date ? 'for ' + data.date : '';
+        document.getElementById('statScoredSub').textContent =
+            data.totalCollected ? Math.round(data.totalScored / data.totalCollected * 100) + '% of collected' : '';
+        document.getElementById('statPassedSub').textContent =
+            data.totalScored ? Math.round(data.passedThreshold / data.totalScored * 100) + '% pass rate' : '';
+        document.getElementById('statSourcesSub').textContent = 'all healthy';
+    }
+
+    function renderStories(stories) {
+        const list = document.getElementById('storiesList');
+        list.innerHTML = '';
+
+        if (!stories || stories.length === 0) {
+            list.innerHTML = '<p style="color:var(--gray);font-size:0.85rem;padding:1rem 0">No stories available yet.</p>';
+            return;
+        }
+
+        stories.forEach(function (s, i) {
+            const item = document.createElement('div');
+            item.className = 'story-item';
+
+            const scoreVal = typeof s.score === 'number' ? s.score : parseFloat(s.score);
+            const sClass = scoreClass(scoreVal);
+            const sourceLabel = SOURCE_LABELS[s.source] || s.source;
+            const title = s.title || '(no title)';
+            const url = s.url || '#';
+
+            item.innerHTML =
+                '<div class="story-rank">#' + (i + 1) + '</div>' +
+                '<div class="story-body">' +
+                    '<a class="story-title" href="' + escHtml(url) + '" target="_blank" rel="noopener">' +
+                        escHtml(title) +
+                    '</a>' +
+                    '<div class="story-meta">' +
+                        '<span class="story-source">' + escHtml(sourceLabel) + '</span>' +
+                        '<span class="story-score ' + sClass + '">' + fmtScore(scoreVal) + ' / 10</span>' +
+                    '</div>' +
+                '</div>';
+
+            list.appendChild(item);
+        });
+    }
+
+    function renderSourceChart(breakdown) {
+        const chart = document.getElementById('sourceChart');
+        chart.innerHTML = '';
+
+        if (!breakdown || Object.keys(breakdown).length === 0) {
+            chart.innerHTML = '<p style="color:var(--gray);font-size:0.8rem">No source data.</p>';
+            return;
+        }
+
+        const entries = Object.entries(breakdown).sort(function (a, b) { return b[1] - a[1]; });
+        const max = entries[0][1] || 1;
+
+        entries.forEach(function (entry) {
+            const src = entry[0], count = entry[1];
+            const pct = Math.round((count / max) * 100);
+            const label = SOURCE_LABELS[src] || src;
+
+            const row = document.createElement('div');
+            row.className = 'source-row';
+            row.innerHTML =
+                '<span class="source-name">' + escHtml(label) + '</span>' +
+                '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+                '<span class="source-count">' + fmt(count) + '</span>';
+            chart.appendChild(row);
+        });
+    }
+
+    function renderCosts(data) {
+        const today = data.estimatedCost;
+        const scored = data.totalScored;
+
+        const todayEl = document.getElementById('costToday');
+        const weekEl = document.getElementById('costWeek');
+        const perItemEl = document.getElementById('costPerItem');
+        const noteEl = document.getElementById('costNote');
+
+        if (typeof today === 'number') {
+            todayEl.textContent = '~$' + today.toFixed(2);
+            weekEl.textContent = '~$' + (today * 7).toFixed(2);
+            if (scored && today > 0) {
+                perItemEl.textContent = '~$' + (today / scored).toFixed(4);
+            } else {
+                perItemEl.textContent = '—';
+            }
+        } else {
+            todayEl.textContent = '—';
+            weekEl.textContent = '—';
+            perItemEl.textContent = '—';
+        }
+
+        noteEl.textContent = 'LLM scoring costs only. Infra separate.';
+    }
+
+    function escHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function showOffline() {
+        document.getElementById('offlineBanner').classList.add('visible');
+        setStatus('offline', 'offline');
+        document.getElementById('statusMeta').textContent = 'data unavailable';
+    }
+
+    function renderDashboard(data) {
+        // Status
+        const state = (data.status || 'idle').toLowerCase();
+        const stateLabels = { collecting: 'collecting', scoring: 'scoring', idle: 'idle' };
+        setStatus(state, stateLabels[state] || state);
+
+        const metaEl = document.getElementById('statusMeta');
+        if (data.lastUpdated) {
+            metaEl.textContent = 'Last updated ' + fmtDate(data.lastUpdated);
+        } else {
+            metaEl.textContent = '';
+        }
+
+        renderStats(data);
+        renderStories(data.topStories || []);
+        renderSourceChart(data.sourceBreakdown || {});
+        renderCosts(data);
+    }
+
+    function init() {
+        fetch('dashboard-data.json?t=' + Date.now())
+            .then(function (res) {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
+            .then(function (data) {
+                renderDashboard(data);
+            })
+            .catch(function (err) {
+                console.warn('Dashboard data fetch failed:', err);
+                showOffline();
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+{
+  "generatedAt": "2026-02-26T06:49:48.013813+00:00",
+  "date": "2026-02-25",
+  "status": "idle",
+  "lastUpdated": "2026-02-25T18:58:14.674963",
+  "totalCollected": 426,
+  "totalScored": 400,
+  "passedThreshold": 228,
+  "sourcesActive": 6,
+  "sourceBreakdown": {
+    "brave_search": 50,
+    "github": 10,
+    "hackernews": 80,
+    "clawhub": 11,
+    "bluesky": 75,
+    "reddit": 200
+  },
+  "topStories": [
+    {
+      "title": "AIエージェント「OpenClaw」がメールを全削除している──MetaのAI研究者、Mac Miniまで全力ダッシュ - ITmedia NEWS https://www.itmedia.co.jp",
+      "source": "bluesky",
+      "score": 9.7,
+      "url": "https://bsky.app/profile/shiojiri.com/post/3mfpz5uhmwc24"
+    },
+    {
+      "title": "moltbook - the front page of the agent internet",
+      "source": "brave_search",
+      "score": 9.7,
+      "url": "https://www.moltbook.com/"
+    },
+    {
+      "title": "Moltbook AI - The Front Page of the Agent Internet",
+      "source": "brave_search",
+      "score": 9.7,
+      "url": "https://moltbookai.net/"
+    },
+    {
+      "title": "Google restricting Google AI Pro/Ultra subscribers for using OpenClaw",
+      "source": "hackernews",
+      "score": 9.7,
+      "url": "https://discuss.ai.google.dev/t/account-restricted-without-warning-google-ai-ultra-oauth-via-openclaw/122778"
+    },
+    {
+      "title": "OpenAI just hired the OpenClaw creator",
+      "source": "reddit",
+      "score": 9.7,
+      "url": "https://www.reddit.com/r/artificial/comments/1r6xndz/openai_just_hired_the_openclaw_creator/"
+    }
+  ],
+  "estimatedCost": 0.2
+}
